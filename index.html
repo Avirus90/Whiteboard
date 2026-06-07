@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>PDF Whiteboard Pro | Dual Canvas + Audio Recording + Telegram Cloud</title>
+  <title>PDF Whiteboard Pro | Vertical Layout - Top Fixed + Bottom Zoom/Draw</title>
   <!-- MathJax for LaTeX equations -->
   <script>
     window.MathJax = {
@@ -19,22 +19,24 @@
     body {
       margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #e9eef3;
+      background: #eef2f7;
       height: 100vh;
       display: flex;
       flex-direction: column;
       padding: 12px;
       gap: 12px;
+      overflow: hidden;
     }
     .toolbar {
       background: white;
       border-radius: 20px;
-      padding: 12px 16px;
+      padding: 10px 16px;
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 10px;
       align-items: center;
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      flex-shrink: 0;
     }
     .tool-group {
       display: flex;
@@ -48,7 +50,7 @@
     button, .file-label {
       background: #1e88e5;
       border: none;
-      padding: 8px 14px;
+      padding: 6px 14px;
       border-radius: 40px;
       color: white;
       font-weight: 600;
@@ -66,30 +68,29 @@
     button.sync-active { background: #9b59b6; }
     .telegram-btn { background: #0088cc; }
     .danger-btn { background: #e74c3c; }
-    input[type="color"] { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #ddd; cursor: pointer; }
+    input[type="color"] { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #ddd; cursor: pointer; }
     .board-container {
       display: flex;
+      flex-direction: column;
       flex: 1;
-      gap: 20px;
-      flex-wrap: wrap;
+      gap: 16px;
       min-height: 0;
     }
     .board-card {
-      flex: 1;
-      min-width: 280px;
       background: white;
       border-radius: 24px;
-      box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      backdrop-filter: blur(2px);
+      flex: 1;
     }
     .board-header {
-      padding: 12px 16px;
+      padding: 10px 16px;
       background: #fef9e6;
       font-weight: bold;
       border-bottom: 2px solid #ffd966;
+      font-size: 14px;
     }
     .canvas-holder {
       position: relative;
@@ -99,16 +100,14 @@
       align-items: center;
       justify-content: center;
       overflow: auto;
+      min-height: 0;
     }
     canvas {
       display: block;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       background: white;
       cursor: crosshair;
-    }
-    #topCanvas, #mainBoardCanvas {
-      width: 100%;
-      height: auto;
+      max-width: 100%;
       max-height: 100%;
       object-fit: contain;
     }
@@ -133,6 +132,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      flex-shrink: 0;
     }
     .modal {
       display: none;
@@ -171,6 +171,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-shrink: 0;
     }
     #mathInput { flex: 1; border-radius: 60px; border: 1px solid #ccc; padding: 8px 15px; }
     .mic-status { position: fixed; bottom: 20px; left: 20px; background: #27ae60; color: white; padding: 6px 14px; border-radius: 30px; font-size: 12px; display: none; z-index: 1500; }
@@ -194,8 +195,8 @@
     <button id="clearAllBtn" class="secondary">🗑️ Clear</button>
     <button id="undoBtn" class="secondary">↩️ Undo</button>
     <button id="redoBtn" class="secondary">↪️ Redo</button>
-    <button id="adjModeBtn" class="secondary">🔧 ADJ (PDF Zoom)</button>
-    <button id="resetAdjBtn" class="secondary">🔄 Reset PDF Zoom</button>
+    <button id="adjModeBtn" class="secondary">🔧 ADJ (Top Zoom)</button>
+    <button id="resetAdjBtn" class="secondary">🔄 Reset Top Zoom</button>
   </div>
   <div class="tool-group">
     <button id="micTestBtn" class="telegram-btn">🎤 Test Mic</button>
@@ -204,7 +205,7 @@
     <button id="testTelegramBtn" class="telegram-btn">📡 Test Bot</button>
   </div>
   <input type="file" id="pdfFileInput" accept=".pdf" style="display:none">
-  <label for="pdfFileInput" class="file-label" style="background:#2c3e66;">📄 Upload PDF 16:9</label>
+  <label for="pdfFileInput" class="file-label" style="background:#2c3e66;">📄 Upload PDF (16:9)</label>
   <div id="pdfPageNav" style="display:none; gap:6px; align-items:center;">
     <button id="prevPageBtn" class="secondary">◀ Prev</button>
     <span id="pageIndicator">1/1</span>
@@ -214,7 +215,7 @@
 
 <div class="math-bar">
   <span>📐 LaTeX: </span>
-  <input type="text" id="mathInput" placeholder="e.g., $E = mc^2$ or \frac{a}{b}">
+  <input type="text" id="mathInput" placeholder="e.g., $x^2 + y^2 = r^2$ or \frac{a}{b}">
   <button id="addMathBtn" style="background:#2ecc71;">➕ Add Equation</button>
 </div>
 
@@ -224,17 +225,17 @@
 </div>
 
 <div class="board-container">
-  <!-- TOP Canvas : Fixed PDF + Drawing (no zoom) -->
+  <!-- TOP Canvas : Fixed PDF + Drawing (no zoom except optional ADJ mode) -->
   <div class="board-card">
-    <div class="board-header">📄 PDF Reference + Drawing (Fixed View)</div>
+    <div class="board-header">📄 TOP: Fixed PDF Reference + Drawing (Static View)</div>
     <div class="canvas-holder" id="topHolder">
       <canvas id="topCanvas"></canvas>
-      <div class="status-badge" id="topStatus">Ready</div>
+      <div class="status-badge" id="topStatus">Fixed View</div>
     </div>
   </div>
   <!-- BOTTOM Canvas : Zoom/Pan + Draw, synchronised strokes -->
   <div class="board-card">
-    <div class="board-header">✍️ Interactive Canvas (Pinch Zoom • Pan • Draw)</div>
+    <div class="board-header">✍️ BOTTOM: Interactive Canvas (Pinch Zoom • Pan • Draw)</div>
     <div class="canvas-holder" id="mainHolder">
       <canvas id="mainBoardCanvas"></canvas>
       <div class="status-badge" id="mainStatus">Zoom + Draw</div>
@@ -242,19 +243,19 @@
   </div>
 </div>
 
-<div style="font-size:12px; text-align:center; background:#fff3e0; border-radius:30px; padding:6px; margin-top:4px;">
-  💡 Tip: Draw on bottom canvas → appears on BOTH. Bottom: pinch zoom/pan. Top: always fits. Use ADJ button to adjust PDF position/zoom temporarily.
+<div style="font-size:12px; text-align:center; background:#fff3e0; border-radius:30px; padding:6px; margin-top:4px; flex-shrink:0;">
+  💡 Tip: Draw on bottom canvas → appears on BOTH. Bottom: pinch zoom/pan. Top: always fits PDF. Use ADJ button to temporarily zoom top canvas.
 </div>
 
 <div id="qrModal" class="modal"><div class="modal-content"><h3>📱 Telegram Access</h3><div id="qrCodeContainer"></div><p>@WB27_bot</p><button onclick="closeModal()" style="background:#0088cc;">OK</button></div></div>
 
 <script>
-  // ========== TELEGRAM CONFIG (FatherBot + Direct) ==========
+  // ========== TELEGRAM CONFIG ==========
   const TELEGRAM = { BOT_TOKEN: '8142735342:AAHexGW7ZVeWorAb70i51P1hudv9rljUH7Q', CHAT_ID: '5229323108', BOT_USERNAME: 'WB27_bot', FATHERBOT_URL: 'https://fatherbot.vercel.app/api/telegram' };
   
   // ========== GLOBALS ==========
   let pdfDoc = null, currentPageNum = 1, totalPages = 0;
-  let pdfBaseWidth = 1200, pdfBaseHeight = 675;     // target high-res (16:9 default)
+  let pdfBaseWidth = 1200, pdfBaseHeight = 675;     // high-res 16:9 default
   let hasPDF = false;
   
   // canvases references
@@ -284,7 +285,6 @@
   let penColor = '#000000';
   let penSize = 3;
   let adjModeActive = false;    // allows zoom/pan on top PDF (temporary)
-  let syncView = false;         // not needed for core, but keep compatibility
   // bottom canvas transform
   let scale = 1, offsetX = 0, offsetY = 0;
   let topScale = 1, topOffsetX = 0, topOffsetY = 0;  // for ADJ mode on top
@@ -296,7 +296,7 @@
   // recording / mic
   let mediaRecorder = null, recordedChunks = [], isRecording = false;
   let micStream = null, isMicEnabled = false;
-  let recordingInterval = null, canvasStream = null;
+  let recordingInterval = null;
   const hiddenRecordCanvas = document.createElement('canvas');
   let hiddenRecordCtx = hiddenRecordCanvas.getContext('2d');
   
@@ -328,7 +328,7 @@
     redrawBoth();
   }
   
-  // redraw logic: bottom canvas applies zoom/pan; top is identity
+  // redraw logic: bottom canvas applies zoom/pan; top is identity (or ADJ transform if active)
   function redrawBoth() {
     if (!hasPDF) return;
     // ---- bottom canvas (zoomable) ----
@@ -338,7 +338,7 @@
     mainCtx.drawImage(pdfOffscreen, 0, 0);
     mainCtx.drawImage(drawingLayerMain, 0, 0);
     
-    // ---- top canvas (fixed, no zoom) ----
+    // ---- top canvas (fixed by default, but ADJ mode allows transform) ----
     topCtx.setTransform(1,0,0,1,0,0);
     topCtx.clearRect(0,0, topCanvas.width, topCanvas.height);
     if (adjModeActive) {
@@ -350,7 +350,8 @@
     topCtx.drawImage(drawingLayerTop, 0, 0);
     topCtx.setTransform(1,0,0,1,0,0);
     
-    document.getElementById('topStatus').innerHTML = adjModeActive ? '🔧 ADJ Mode' : '📄 Fixed';
+    document.getElementById('topStatus').innerHTML = adjModeActive ? '🔧 ADJ Mode' : '📄 Fixed View';
+    document.getElementById('mainStatus').innerHTML = `Zoom: ${scale.toFixed(2)}x`;
   }
   
   // convert event to logical canvas coordinates (PDF space)
@@ -524,7 +525,6 @@
     if(!pdfDoc) return;
     let newPage = currentPageNum + delta;
     if(newPage>=1 && newPage<=totalPages) {
-      // save current strokes to page memory
       pageStrokes[currentPageNum] = [...currentStrokes];
       currentPageNum = newPage;
       await renderPDFPageHighRes(currentPageNum);
@@ -577,21 +577,21 @@
   document.getElementById('brushWidth').addEventListener('input', (e) => { penSize = parseInt(e.target.value); document.getElementById('sizeLabel').innerText = penSize+'px'; });
   function highlightTool(activeId) { ['drawModeBtn','eraserBtn','smartEraseBtn'].forEach(id => document.getElementById(id).classList.remove('active')); document.getElementById(activeId).classList.add('active'); }
   
-  // Math equations
+  // Math equations (simple text insertion)
   document.getElementById('addMathBtn').onclick = () => {
     const latex = document.getElementById('mathInput').value;
     if(!latex) return;
-    const tempDiv = document.createElement('div'); tempDiv.innerHTML = latex; // basic
     const x = 100, y = 100;
     mainDrawCtx.font = '24px "Segoe UI"'; mainDrawCtx.fillStyle = penColor;
     topDrawCtx.font = '24px "Segoe UI"'; topDrawCtx.fillStyle = penColor;
     mainDrawCtx.fillText(latex, x, y); topDrawCtx.fillText(latex, x, y);
+    // optional store as stroke (simplified)
     currentStrokes.push({ points: [{x,y}], color: penColor, width: 24, isDot: false, text: latex, isText: true });
     pageStrokes[currentPageNum] = [...currentStrokes];
     saveHistory(); redrawBoth();
   };
   
-  // ========== TELEGRAM & RECORDING (FIXED) ==========
+  // ========== TELEGRAM & RECORDING ==========
   async function testTelegram() { try { const r = await fetch(`https://api.telegram.org/bot${TELEGRAM.BOT_TOKEN}/getMe`); const j = await r.json(); document.getElementById('telegramStatusText').innerText = j.ok ? `✅ @${j.result.username}` : '❌ Failed'; } catch(e) { document.getElementById('telegramStatusText').innerText = '⚠️ Check Token'; } }
   async function uploadToTelegram(blob, filename) {
     const fd = new FormData(); fd.append('chat_id', TELEGRAM.CHAT_ID); fd.append('document', blob, filename);
